@@ -55,7 +55,7 @@ class Article:
             self.url = res.headers['location'] if 'location' in res.headers \
                 else res.url
 
-        # Some outlets' URLs don't play well with modifications, so those we 
+        # Some outlets' URLs don't play well with modifications, so those we
         # store crufty. Otherwise, decruft with extreme prejudice.
         if not self.delicate:
             self.url = decruft_url(self.url)
@@ -184,7 +184,7 @@ def parse_feed(outlet, url, delicate, redirects):
     for entry in feed['entries']:
         title = entry['title']
         url = entry['link']
-        
+
         article = Article(outlet, title, url, delicate, redirects)
 
         articles.append(article)
@@ -223,7 +223,7 @@ def config_twitter(config):
     twitter = {'api_key': api_key, 'api_secret': api_secret,
             'oauth_token': oauth_token, 'oauth_secret': oauth_secret}
 
-    config['twitter'] = twitter 
+    config['twitter'] = twitter
 
     return config
 
@@ -247,21 +247,21 @@ def setup_db(config):
 def setup_matchlist():
     path = os.path.join(home, 'matchlist.txt')
     path_case_sensitive = os.path.join(home, 'matchlist_case_sensitive.txt')
-    
+
     if os.path.isfile(path):
         print("A matchlist already exists at {path}.".format(**locals()))
     else:
         with open(path, 'w') as f:
             f.write('')
         print("A new matchlist has been generated at {path}. You can add case insensitive entries to match, one per line.".format(**locals()))
-       
+
     if os.path.isfile(path_case_sensitive):
             print("A case-sensitive matchlist already exists at {path_case_sensitive}.".format(**locals()))
     else:
         with open(path_case_sensitive, 'w') as f:
             f.write('')
         print("A new case-sensitive matchlist has been generated at {path_case_sensitive}. You can add case-sensitive entries to match, one per line.".format(**locals()))
-    
+
     return
 
 
@@ -289,7 +289,7 @@ def initial_setup():
         to_configure = input("It looks like this is the first time you've run trackthenews, or you've moved or deleted its configuration files.\nWould you like to create a new configuration in {}? (Y/n) ".format(home))
 
         config = {}
-    
+
         if to_configure.lower() in ['n','no','q','exit','quit']:
             sys.exit("Ok, quitting the program without configuring.")
 
@@ -338,7 +338,7 @@ def main():
             default=os.path.join(os.getcwd(), 'ttnconfig'))
 
     args = parser.parse_args()
-    
+
     global home
     home = os.path.abspath(args.dir)
 
@@ -378,7 +378,7 @@ def main():
         matchwords = [w for w in f.read().split('\n') if w]
     with open(matchlist_case_sensitive, 'r', encoding="utf-8") as f:
         matchwords_case_sensitive = [w for w in f.read().split('\n') if w]
- 
+
     if not (matchwords or matchwords_case_sensitive):
             sys.exit("You must add words to at least one of the matchwords lists, located at {} and {}.".format(matchlist, matchlist_case_sensitive))
 
@@ -450,8 +450,9 @@ def main():
                 conn.commit()
 
                 time.sleep(1)
-        except:
-            print('Having with feed {} for outlet {}, skipping'.format(outlet, url))
+        except Exception as e:
+            print('Having trouble with feed {} for outlet {}, skipping'.format(outlet, url), file=sys.stderr)
+            print(e, file=sys.stderr)
             pass
 
 
