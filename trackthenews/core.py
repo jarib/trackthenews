@@ -417,38 +417,43 @@ def main():
         redirects = True if 'redirectLinks' in feed and feed['redirectLinks'] \
                 else False
 
-        articles = parse_feed(outlet, url, delicate, redirects)
-        deduped = []
+        try:
+            articles = parse_feed(outlet, url, delicate, redirects)
+            deduped = []
 
-        for article in articles:
-            article_exists = conn.execute('select * from articles where url = ?',
-                    (article.url,)).fetchall()
-            if not article_exists:
-                deduped.append(article)
+            for article in articles:
+                article_exists = conn.execute('select * from articles where url = ?',
+                        (article.url,)).fetchall()
+                if not article_exists:
+                    deduped.append(article)
 
-        for counter, article in enumerate(deduped, 1):
-            print('Checking {} article {}/{}'.format(
-                article.outlet, counter, len(deduped)))
+            for counter, article in enumerate(deduped, 1):
+                print('Checking {} article {}/{}'.format(
+                    article.outlet, counter, len(deduped)))
 
-            try:
-                article.check_for_matches()
-            except:
-                print('Having trouble with that article. Skipping for now.')
-                pass
+                try:
+                    article.check_for_matches()
+                except:
+                    print('Having trouble with that article. Skipping for now.')
+                    pass
 
-            if article.matching_grafs:
-                print("Got one!")
-                article.tweet()
+                if article.matching_grafs:
+                    print("Got one!")
+                    article.tweet()
 
-            conn.execute("""insert into articles(
-                         title, outlet, url, tweeted,recorded_at)
-                         values (?, ?, ?, ?, ?)""",
-                         (article.title, article.outlet, article.url,
-                          article.tweeted, datetime.utcnow()))
+                conn.execute("""insert into articles(
+                            title, outlet, url, tweeted,recorded_at)
+                            values (?, ?, ?, ?, ?)""",
+                            (article.title, article.outlet, article.url,
+                            article.tweeted, datetime.utcnow()))
 
-            conn.commit()
+                conn.commit()
 
-            time.sleep(1)
+                time.sleep(1)
+        except:
+            print('Having with feed {} for outlet {}, skipping'.format(outlet, url))
+            pass
+
 
     conn.close()
 
