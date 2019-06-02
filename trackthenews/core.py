@@ -80,6 +80,9 @@ class Article:
         self.clean()
         plaintext_grafs = self.plaintext.split('\n')
 
+        if self.title is not None:
+            plaintext_grafs.insert(0, self.title)
+
         if blocklist_loaded and blocklist.check(self):
             pass
         else:
