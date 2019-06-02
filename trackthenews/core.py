@@ -65,6 +65,9 @@ class Article:
         self.res = requests.get(self.url, headers={'User-Agent':ua}, timeout=30)
         doc = Document(self.res.text)
 
+        if self.title is None:
+            self.title = doc.title()
+
         h = html2text.HTML2Text()
         h.ignore_links = True
         h.ignore_emphasis = True
@@ -281,6 +284,58 @@ def setup_rssfeedsfile():
 
     return
 
+def test_url(url):
+    print("\nMatching grafs for {}".format(url));
+    article = Article("test-outlet", None, url, False, False)
+
+    article.check_for_matches()
+
+    for idx, graf in enumerate(article.matching_grafs):
+        print('\t', idx + 1, graf)
+
+def test_latest(conf):
+    outlet, count = conf.split(':', 2)
+    count = int(count)
+
+    conn = sqlite3.connect(database, isolation_level='EXCLUSIVE')
+    conn.row_factory = sqlite3.Row
+
+    added_matches = []
+    removed_matches = []
+    existing_matches = []
+
+    try:
+        articles = conn.execute('select * from articles where outlet = ? limit ?',
+                                      (outlet,count)).fetchall()
+
+        for a in articles:
+            article = Article(outlet, None, a['url'], False, False)
+            article.check_for_matches()
+
+            if article.matching_grafs and not a['tweeted']:
+                added_matches.append(a['url'])
+            elif a['tweeted'] and not article.matching_grafs:
+                removed_matches.append(a['url'])
+            elif a['tweeted'] and article.matching_grafs:
+                existing_matches.append(a['url'])
+
+    finally:
+        conn.close()
+
+        print('New matches')
+        for idx, match in enumerate(added_matches):
+            print('\t', idx + 1, match)
+
+        print('Removed matches')
+        for idx, match in enumerate(removed_matches):
+            print('\t', idx + 1, match)
+
+        print('Existing matches')
+        for idx, match in enumerate(existing_matches):
+            print('\t', idx + 1, match)
+
+
+
 
 def initial_setup():
     configfile = os.path.join(home, 'config.yaml')
@@ -339,6 +394,10 @@ def main():
     parser.add_argument('dir', nargs='?',
             help="The directory to store or find the configuration files.",
             default=os.path.join(os.getcwd(), 'ttnconfig'))
+    parser.add_argument('-t', '--testurl', nargs='?',
+            help="Test this URL against the current config config.")
+    parser.add_argument('-l', '--testlatest', nargs='?',
+            help="Test the n latest URLs from outlet given config, e.g. NRK:10 to test the 10 latest URLs from NRK")
 
     args = parser.parse_args()
 
@@ -362,12 +421,10 @@ def main():
     global ua
     ua = config['user-agent']
 
+    global database
     database = os.path.join(home, config['db'])
     if not os.path.isfile(database):
         setup_db(config)
-
-    conn = sqlite3.connect(database, isolation_level='EXCLUSIVE')
-    conn.execute('BEGIN EXCLUSIVE')
 
     matchlist = os.path.join(home, 'matchlist.txt')
     matchlist_case_sensitive = os.path.join(home, 'matchlist_case_sensitive.txt')
@@ -397,10 +454,10 @@ def main():
         print("No blocklist to load.")
 
     if matchwords:
-        print("Matching against the following words: {}".format(matchwords))
+        print("Matching against {} case-insensitive words".format(len(matchwords)))
     if matchwords_case_sensitive:
-        print("Matching against the following case-sensitive words: {}".format(
-            matchwords_case_sensitive))
+        print("Matching against {} case-sensitive words".format(
+            len(matchwords_case_sensitive)))
 
     rssfeedsfile = os.path.join(home, 'rssfeeds.json')
     if not os.path.isfile(rssfeedsfile):
@@ -412,7 +469,16 @@ def main():
         except json.JSONDecodeError:
             sys.exit("You must add RSS feeds to the RSS feeds list, located at {}.".format(rssfeedsfile))
 
-    for feed in rss_feeds:
+
+    if args.testurl:
+        test_url(args.testurl)
+    elif args.testlatest:
+        test_latest(args.testlatest)
+    else:
+      conn = sqlite3.connect(database, isolation_level='EXCLUSIVE')
+      conn.execute('BEGIN EXCLUSIVE')
+
+      for feed in rss_feeds:
         outlet = feed['outlet'] if 'outlet' in feed else ''
         url = feed['url']
         delicate = True if 'delicateURLs' in feed and feed['delicateURLs'] \
@@ -426,7 +492,7 @@ def main():
 
             for article in articles:
                 article_exists = conn.execute('select * from articles where url = ?',
-                        (article.url,)).fetchall()
+                                              (article.url,)).fetchall()
                 if not article_exists:
                     deduped.append(article)
 
@@ -447,8 +513,8 @@ def main():
                 conn.execute("""insert into articles(
                             title, outlet, url, tweeted,recorded_at)
                             values (?, ?, ?, ?, ?)""",
-                            (article.title, article.outlet, article.url,
-                            article.tweeted, datetime.utcnow()))
+                             (article.title, article.outlet, article.url,
+                              article.tweeted, datetime.utcnow()))
 
                 conn.commit()
 
@@ -459,7 +525,8 @@ def main():
             pass
 
 
-    conn.close()
+        conn.close()
+
 
 if __name__ == '__main__':
     main()
