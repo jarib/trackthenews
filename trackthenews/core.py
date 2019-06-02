@@ -76,6 +76,12 @@ class Article:
 
         self.plaintext = h.handle(doc.summary())
 
+    def get_text(self):
+        if not self.plaintext:
+            self.clean()
+
+        return self.plaintext
+
     def check_for_matches(self):
         """
         Clean up an article, check it against a block list, then for matches.
@@ -297,6 +303,8 @@ def test_latest(conf):
     outlet, count = conf.split(':', 2)
     count = int(count)
 
+    print(outlet, count)
+
     conn = sqlite3.connect(database, isolation_level='EXCLUSIVE')
     conn.row_factory = sqlite3.Row
 
@@ -305,10 +313,11 @@ def test_latest(conf):
     existing_matches = []
 
     try:
-        articles = conn.execute('select * from articles where outlet = ? limit ?',
+        articles = conn.execute('select * from articles where outlet = ? order by recorded_at desc limit ?',
                                       (outlet,count)).fetchall()
 
         for a in articles:
+            print(a['url'])
             article = Article(outlet, None, a['url'], False, False)
             article.check_for_matches()
 
