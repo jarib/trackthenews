@@ -351,7 +351,7 @@ def initial_setup():
 
     if os.path.isfile(configfile):
         with open(configfile, 'r', encoding="utf-8") as f:
-            config = yaml.load(f)
+            config = yaml.load(f, Loader=yaml.FullLoader)
     else:
         to_configure = input("It looks like this is the first time you've run trackthenews, or you've moved or deleted its configuration files.\nWould you like to create a new configuration in {}? (Y/n) ".format(home))
 
@@ -425,7 +425,7 @@ def main():
 
     global config
     with open(configfile, encoding="utf-8") as f:
-        config = yaml.load(f)
+        config = yaml.load(f, Loader=yaml.FullLoader)
 
     global ua
     ua = config['user-agent']
