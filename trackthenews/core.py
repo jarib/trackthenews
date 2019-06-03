@@ -95,10 +95,14 @@ class Article:
         if blocklist_loaded and blocklist.check(self):
             pass
         else:
+            result = []
+
             for graf in plaintext_grafs:
                 if (any(word.lower() in graf.lower() for word in matchwords) or \
                     any(word in graf for word in matchwords_case_sensitive)):
-                    self.matching_grafs.append(graf)
+                    result.append(graf.strip())
+
+            self.matching_grafs = list(set(result))
 
     def tweet(self):
         """Send images to be rendered and tweet them with a text status."""
