@@ -33,6 +33,7 @@ from twython import Twython, TwythonError
 # readability doesn't work very well on NYT, which requires something custom
 # TODO: add other forms of output beyond a Twitter bot
 
+
 class Article:
     def __init__(self, outlet, title, url, delicate=False, redirects=False):
         self.outlet = outlet
@@ -52,8 +53,7 @@ class Article:
         # Follow those links, then store only the final destination.
         if self.redirects:
             res = requests.head(self.url, allow_redirects=True, timeout=30)
-            self.url = res.headers['location'] if 'location' in res.headers \
-                else res.url
+            self.url = res.headers["location"] if "location" in res.headers else res.url
 
         # Some outlets' URLs don't play well with modifications, so those we
         # store crufty. Otherwise, decruft with extreme prejudice.
@@ -62,7 +62,7 @@ class Article:
 
     def clean(self):
         """Download the article and strip it of HTML formatting."""
-        self.res = requests.get(self.url, headers={'User-Agent':ua}, timeout=30)
+        self.res = requests.get(self.url, headers={"User-Agent": ua}, timeout=30)
         doc = Document(self.res.text)
 
         if self.title is None:
@@ -87,7 +87,7 @@ class Article:
         Clean up an article, check it against a block list, then for matches.
         """
         self.clean()
-        plaintext_grafs = self.plaintext.split('\n')
+        plaintext_grafs = self.plaintext.split("\n")
 
         if self.title is not None:
             plaintext_grafs.insert(0, self.title)
@@ -98,8 +98,9 @@ class Article:
             result = []
 
             for graf in plaintext_grafs:
-                if (any(word.lower() in graf.lower() for word in matchwords) or \
-                    any(word in graf for word in matchwords_case_sensitive)):
+                if any(word.lower() in graf.lower() for word in matchwords) or any(
+                    word in graf for word in matchwords_case_sensitive
+                ):
                     result.append(graf.strip())
 
             self.matching_grafs = list(set(result))
@@ -117,15 +118,15 @@ class Article:
         for img in self.imgs:
             try:
                 img_io = BytesIO()
-                img.save(img_io, format='jpeg', quality=95)
+                img.save(img_io, format="jpeg", quality=95)
                 img_io.seek(0)
                 res = twitter.upload_media(media=img_io)
 
-                media_ids.append(res['media_id'])
+                media_ids.append(res["media_id"])
             except TwythonError:
                 pass
 
-        source = self.outlet + ": " if self.outlet else ''
+        source = self.outlet + ": " if self.outlet else ""
 
         status = "{}{} {}".format(source, self.title, self.url)
         twitter.update_status(status=status, media_ids=media_ids)
@@ -136,18 +137,19 @@ class Article:
 
 def get_twitter_instance():
     """Return an authenticated twitter instance."""
-    app_key = config['twitter']['api_key']
-    app_secret = config['twitter']['api_secret']
-    oauth_token = config['twitter']['oauth_token']
-    oauth_token_secret = config['twitter']['oauth_secret']
+    app_key = config["twitter"]["api_key"]
+    app_secret = config["twitter"]["api_secret"]
+    oauth_token = config["twitter"]["oauth_token"]
+    oauth_token_secret = config["twitter"]["oauth_secret"]
 
     return Twython(app_key, app_secret, oauth_token, oauth_token_secret)
+
 
 def get_textsize(graf, width, fnt, spacing):
     """Take text and additional parameters and return the rendered size."""
     wrapped_graf = textwrap.wrap(graf, width)
 
-    line_spacing = fnt.getsize('A')[1] + spacing
+    line_spacing = fnt.getsize("A")[1] + spacing
     text_width = max(fnt.getsize(line)[0] for line in wrapped_graf)
 
     textsize = text_width, line_spacing * len(wrapped_graf)
@@ -157,37 +159,36 @@ def get_textsize(graf, width, fnt, spacing):
 
 def render_img(graf, width=60, square=False):
     """Take a paragraph and render an Image of it on a plain background."""
-    font_name = config['font']
-    font_dir = os.path.join(os.path.dirname(__file__), 'fonts')
+    font_name = config["font"]
+    font_dir = os.path.join(os.path.dirname(__file__), "fonts")
     font_path = os.path.join(font_dir, font_name)
     fnt = ImageFont.truetype(font_path, size=36)
-    spacing = 12 # Just a nice spacing number, visually
+    spacing = 12  # Just a nice spacing number, visually
 
-    graf = graf.lstrip('#>—-• ')
+    graf = graf.lstrip("#>—-• ")
 
     if square is True:
-        ts = {w: get_textsize(graf, w, fnt, spacing) \
-                for w in range(20, width)}
-        width = min(ts, key=lambda w: abs(ts.get(w)[1]-ts.get(w)[0]))
+        ts = {w: get_textsize(graf, w, fnt, spacing) for w in range(20, width)}
+        width = min(ts, key=lambda w: abs(ts.get(w)[1] - ts.get(w)[0]))
 
     textsize = get_textsize(graf, width, fnt, spacing)
-    wrapped = '\n'.join(textwrap.wrap(graf, width))
+    wrapped = "\n".join(textwrap.wrap(graf, width))
 
     border = 60
 
     size = tuple(side + border * 2 for side in textsize)
     xy = (border, border)
 
-    im = Image.new('RGB', size, color=config['color'])
+    im = Image.new("RGB", size, color=config["color"])
     draw_obj = ImageDraw.Draw(im)
-    draw_obj.multiline_text(xy, wrapped, fill='#000000', font=fnt, spacing=12)
+    draw_obj.multiline_text(xy, wrapped, fill="#000000", font=fnt, spacing=12)
 
     return im
 
 
 def decruft_url(url):
     """Attempt to remove extraneous characters from a given URL and return it."""
-    url = url.split('?')[0].split('#')[0]
+    url = url.split("?")[0].split("#")[0]
     return url
 
 
@@ -197,9 +198,9 @@ def parse_feed(outlet, url, delicate, redirects):
 
     articles = []
 
-    for entry in feed['entries']:
-        title = entry['title']
-        url = entry['link']
+    for entry in feed["entries"]:
+        title = entry["title"]
+        url = entry["link"]
 
         article = Article(outlet, title, url, delicate, redirects)
 
@@ -209,12 +210,14 @@ def parse_feed(outlet, url, delicate, redirects):
 
 
 def config_twitter(config):
-    if 'twitter' in config.keys():
+    if "twitter" in config.keys():
         replace = input("Twitter configuration already exists. Replace? (Y/n) ")
-        if replace.lower() in ['n','no']:
+        if replace.lower() in ["n", "no"]:
             return config
 
-    input("Create a new Twitter app at https://apps.twitter.com/app/new to post matching stories. For this step, you can be logged in as yourself or with the posting account, if they're different. Fill out Name, Description, and Website with values meaningful to you. These are not used in trackthenews config but may be publicly visible. Then click the \"Keys and Access Tokens\" tab. ")
+    input(
+        'Create a new Twitter app at https://apps.twitter.com/app/new to post matching stories. For this step, you can be logged in as yourself or with the posting account, if they\'re different. Fill out Name, Description, and Website with values meaningful to you. These are not used in trackthenews config but may be publicly visible. Then click the "Keys and Access Tokens" tab. '
+    )
 
     api_key = input("Enter the provided API key: ")
     api_secret = input("Enter the provided API secret: ")
@@ -224,27 +227,32 @@ def config_twitter(config):
     tw = Twython(api_key, api_secret)
     auth = tw.get_authentication_tokens()
 
-    oauth_token = auth['oauth_token']
-    oauth_secret = auth['oauth_token_secret']
+    oauth_token = auth["oauth_token"]
+    oauth_secret = auth["oauth_token_secret"]
 
     tw = Twython(api_key, api_secret, oauth_token, oauth_secret)
 
-    pin = input("Enter the pin found at {} ".format(auth['auth_url']))
+    pin = input("Enter the pin found at {} ".format(auth["auth_url"]))
 
     final_step = tw.get_authorized_tokens(pin)
 
-    oauth_token = final_step['oauth_token']
-    oauth_secret = final_step['oauth_token_secret']
+    oauth_token = final_step["oauth_token"]
+    oauth_secret = final_step["oauth_token_secret"]
 
-    twitter = {'api_key': api_key, 'api_secret': api_secret,
-            'oauth_token': oauth_token, 'oauth_secret': oauth_secret}
+    twitter = {
+        "api_key": api_key,
+        "api_secret": api_secret,
+        "oauth_token": oauth_token,
+        "oauth_secret": oauth_secret,
+    }
 
-    config['twitter'] = twitter
+    config["twitter"] = twitter
 
     return config
 
+
 def setup_db(config):
-    database = os.path.join(home, config['db'])
+    database = os.path.join(home, config["db"])
     if not os.path.isfile(database):
         conn = sqlite3.connect(database)
         schema_script = """create table articles (
@@ -261,55 +269,71 @@ def setup_db(config):
 
 
 def setup_matchlist():
-    path = os.path.join(home, 'matchlist.txt')
-    path_case_sensitive = os.path.join(home, 'matchlist_case_sensitive.txt')
+    path = os.path.join(home, "matchlist.txt")
+    path_case_sensitive = os.path.join(home, "matchlist_case_sensitive.txt")
 
     if os.path.isfile(path):
         print("A matchlist already exists at {path}.".format(**locals()))
     else:
-        with open(path, 'w') as f:
-            f.write('')
-        print("A new matchlist has been generated at {path}. You can add case insensitive entries to match, one per line.".format(**locals()))
+        with open(path, "w") as f:
+            f.write("")
+        print(
+            "A new matchlist has been generated at {path}. You can add case insensitive entries to match, one per line.".format(
+                **locals()
+            )
+        )
 
     if os.path.isfile(path_case_sensitive):
-            print("A case-sensitive matchlist already exists at {path_case_sensitive}.".format(**locals()))
+        print(
+            "A case-sensitive matchlist already exists at {path_case_sensitive}.".format(
+                **locals()
+            )
+        )
     else:
-        with open(path_case_sensitive, 'w') as f:
-            f.write('')
-        print("A new case-sensitive matchlist has been generated at {path_case_sensitive}. You can add case-sensitive entries to match, one per line.".format(**locals()))
+        with open(path_case_sensitive, "w") as f:
+            f.write("")
+        print(
+            "A new case-sensitive matchlist has been generated at {path_case_sensitive}. You can add case-sensitive entries to match, one per line.".format(
+                **locals()
+            )
+        )
 
     return
 
 
 def setup_rssfeedsfile():
-    path = os.path.join(home, 'rssfeeds.json')
+    path = os.path.join(home, "rssfeeds.json")
 
     if os.path.isfile(path):
         print("An RSS feeds file already exists at {path}.".format(**locals()))
         return
     else:
-        with open(path, 'w') as f:
-            f.write('')
-            print("A new RSS feeds file has been generated at {path}.".format(**locals()))
+        with open(path, "w") as f:
+            f.write("")
+            print(
+                "A new RSS feeds file has been generated at {path}.".format(**locals())
+            )
 
     return
 
+
 def test_url(url):
-    print("\nMatching grafs for {}".format(url));
+    print("\nMatching grafs for {}".format(url))
     article = Article("test-outlet", None, url, False, False)
 
     article.check_for_matches()
 
     for idx, graf in enumerate(article.matching_grafs):
-        print('\t', idx + 1, graf)
+        print("\t", idx + 1, graf)
+
 
 def test_latest(conf):
-    outlet, count = conf.split(':', 2)
+    outlet, count = conf.split(":", 2)
     count = int(count)
 
     print(outlet, count)
 
-    conn = sqlite3.connect(database, isolation_level='EXCLUSIVE')
+    conn = sqlite3.connect(database, isolation_level="EXCLUSIVE")
     conn.row_factory = sqlite3.Row
 
     added_matches = []
@@ -317,51 +341,55 @@ def test_latest(conf):
     existing_matches = []
 
     try:
-        articles = conn.execute('select * from articles where outlet = ? order by recorded_at desc limit ?',
-                                      (outlet,count)).fetchall()
+        articles = conn.execute(
+            "select * from articles where outlet = ? order by recorded_at desc limit ?",
+            (outlet, count),
+        ).fetchall()
 
         for a in articles:
-            print(a['url'])
-            article = Article(outlet, None, a['url'], False, False)
+            print(a["url"])
+            article = Article(outlet, None, a["url"], False, False)
             article.check_for_matches()
 
-            if article.matching_grafs and not a['tweeted']:
-                added_matches.append(a['url'])
-            elif a['tweeted'] and not article.matching_grafs:
-                removed_matches.append(a['url'])
-            elif a['tweeted'] and article.matching_grafs:
-                existing_matches.append(a['url'])
+            if article.matching_grafs and not a["tweeted"]:
+                added_matches.append(a["url"])
+            elif a["tweeted"] and not article.matching_grafs:
+                removed_matches.append(a["url"])
+            elif a["tweeted"] and article.matching_grafs:
+                existing_matches.append(a["url"])
 
     finally:
         conn.close()
 
-        print('New matches')
+        print("New matches")
         for idx, match in enumerate(added_matches):
-            print('\t', idx + 1, match)
+            print("\t", idx + 1, match)
 
-        print('Removed matches')
+        print("Removed matches")
         for idx, match in enumerate(removed_matches):
-            print('\t', idx + 1, match)
+            print("\t", idx + 1, match)
 
-        print('Existing matches')
+        print("Existing matches")
         for idx, match in enumerate(existing_matches):
-            print('\t', idx + 1, match)
-
-
+            print("\t", idx + 1, match)
 
 
 def initial_setup():
-    configfile = os.path.join(home, 'config.yaml')
+    configfile = os.path.join(home, "config.yaml")
 
     if os.path.isfile(configfile):
-        with open(configfile, 'r', encoding="utf-8") as f:
+        with open(configfile, "r", encoding="utf-8") as f:
             config = yaml.load(f, Loader=yaml.FullLoader)
     else:
-        to_configure = input("It looks like this is the first time you've run trackthenews, or you've moved or deleted its configuration files.\nWould you like to create a new configuration in {}? (Y/n) ".format(home))
+        to_configure = input(
+            "It looks like this is the first time you've run trackthenews, or you've moved or deleted its configuration files.\nWould you like to create a new configuration in {}? (Y/n) ".format(
+                home
+            )
+        )
 
         config = {}
 
-        if to_configure.lower() in ['n','no','q','exit','quit']:
+        if to_configure.lower() in ["n", "no", "q", "exit", "quit"]:
             sys.exit("Ok, quitting the program without configuring.")
 
     if sys.version_info.major > 2:
@@ -372,21 +400,23 @@ def initial_setup():
         except:
             pass
 
-    if 'db' not in config:
-        config['db'] = 'trackthenews.db'
+    if "db" not in config:
+        config["db"] = "trackthenews.db"
 
-    if 'user-agent' not in config:
-        ua = input("What would you like your script's user-agent to be? This should be something that is meaningful to you and may show up in the logs of the sites you are tracking. ")
+    if "user-agent" not in config:
+        ua = input(
+            "What would you like your script's user-agent to be? This should be something that is meaningful to you and may show up in the logs of the sites you are tracking. "
+        )
 
         ua = ua + " / powered by trackthenews (a project of freedom.press)"
 
-        config['user-agent'] = ua
+        config["user-agent"] = ua
 
-    if 'color' not in config:
-        config['color'] = '#F5F5F5'
+    if "color" not in config:
+        config["color"] = "#F5F5F5"
 
-    if 'font' not in config:
-        config['font'] = 'NotoSerif-Regular.ttf'
+    if "font" not in config:
+        config["font"] = "NotoSerif-Regular.ttf"
 
     setup_matchlist()
     setup_rssfeedsfile()
@@ -400,17 +430,31 @@ def initial_setup():
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Track articles from RSS feeds for a custom list of keywords and act on the matches.")
+    parser = argparse.ArgumentParser(
+        description="Track articles from RSS feeds for a custom list of keywords and act on the matches."
+    )
 
-    parser.add_argument('-c', '--config', help="Run configuration process",
-            action="store_true")
-    parser.add_argument('dir', nargs='?',
-            help="The directory to store or find the configuration files.",
-            default=os.path.join(os.getcwd(), 'ttnconfig'))
-    parser.add_argument('-t', '--testurl', nargs='?',
-            help="Test this URL against the current config config.")
-    parser.add_argument('-l', '--testlatest', nargs='?',
-            help="Test the n latest URLs from outlet given config, e.g. NRK:10 to test the 10 latest URLs from NRK")
+    parser.add_argument(
+        "-c", "--config", help="Run configuration process", action="store_true"
+    )
+    parser.add_argument(
+        "dir",
+        nargs="?",
+        help="The directory to store or find the configuration files.",
+        default=os.path.join(os.getcwd(), "ttnconfig"),
+    )
+    parser.add_argument(
+        "-t",
+        "--testurl",
+        nargs="?",
+        help="Test this URL against the current config config.",
+    )
+    parser.add_argument(
+        "-l",
+        "--testlatest",
+        nargs="?",
+        help="Test the n latest URLs from outlet given config, e.g. NRK:10 to test the 10 latest URLs from NRK",
+    )
 
     args = parser.parse_args()
 
@@ -421,9 +465,11 @@ def main():
 
     if args.config:
         initial_setup()
-        sys.exit("Created new configuration files. Now go populate the RSS Feed file and the list of matchwords!")
+        sys.exit(
+            "Created new configuration files. Now go populate the RSS Feed file and the list of matchwords!"
+        )
 
-    configfile = os.path.join(home, 'config.yaml')
+    configfile = os.path.join(home, "config.yaml")
     if not os.path.isfile(configfile):
         initial_setup()
 
@@ -432,34 +478,38 @@ def main():
         config = yaml.load(f, Loader=yaml.FullLoader)
 
     global ua
-    ua = config['user-agent']
+    ua = config["user-agent"]
 
     global database
-    database = os.path.join(home, config['db'])
+    database = os.path.join(home, config["db"])
     if not os.path.isfile(database):
         setup_db(config)
 
-    matchlist = os.path.join(home, 'matchlist.txt')
-    matchlist_case_sensitive = os.path.join(home, 'matchlist_case_sensitive.txt')
-    if not (os.path.isfile(matchlist) and \
-            os.path.isfile(matchlist_case_sensitive)):
+    matchlist = os.path.join(home, "matchlist.txt")
+    matchlist_case_sensitive = os.path.join(home, "matchlist_case_sensitive.txt")
+    if not (os.path.isfile(matchlist) and os.path.isfile(matchlist_case_sensitive)):
         setup_matchlist()
 
     global matchwords
     global matchwords_case_sensitive
-    with open(matchlist, 'r', encoding="utf-8") as f:
-        matchwords = [w for w in f.read().split('\n') if w]
-    with open(matchlist_case_sensitive, 'r', encoding="utf-8") as f:
-        matchwords_case_sensitive = [w for w in f.read().split('\n') if w]
+    with open(matchlist, "r", encoding="utf-8") as f:
+        matchwords = [w for w in f.read().split("\n") if w]
+    with open(matchlist_case_sensitive, "r", encoding="utf-8") as f:
+        matchwords_case_sensitive = [w for w in f.read().split("\n") if w]
 
     if not (matchwords or matchwords_case_sensitive):
-            sys.exit("You must add words to at least one of the matchwords lists, located at {} and {}.".format(matchlist, matchlist_case_sensitive))
+        sys.exit(
+            "You must add words to at least one of the matchwords lists, located at {} and {}.".format(
+                matchlist, matchlist_case_sensitive
+            )
+        )
 
     sys.path.append(home)
     global blocklist_loaded
     global blocklist
     try:
         import blocklist as blocklist
+
         blocklist_loaded = True
         print("Loaded blocklist.")
     except ImportError:
@@ -469,77 +519,98 @@ def main():
     if matchwords:
         print("Matching against {} case-insensitive words".format(len(matchwords)))
     if matchwords_case_sensitive:
-        print("Matching against {} case-sensitive words".format(
-            len(matchwords_case_sensitive)))
+        print(
+            "Matching against {} case-sensitive words".format(
+                len(matchwords_case_sensitive)
+            )
+        )
 
-    rssfeedsfile = os.path.join(home, 'rssfeeds.json')
+    rssfeedsfile = os.path.join(home, "rssfeeds.json")
     if not os.path.isfile(rssfeedsfile):
         setup_rssfeedsfile()
 
-    with open(rssfeedsfile, 'r', encoding="utf-8") as f:
+    with open(rssfeedsfile, "r", encoding="utf-8") as f:
         try:
             rss_feeds = json.load(f)
         except json.JSONDecodeError:
-            sys.exit("You must add RSS feeds to the RSS feeds list, located at {}.".format(rssfeedsfile))
-
+            sys.exit(
+                "You must add RSS feeds to the RSS feeds list, located at {}.".format(
+                    rssfeedsfile
+                )
+            )
 
     if args.testurl:
         test_url(args.testurl)
     elif args.testlatest:
         test_latest(args.testlatest)
     else:
-      conn = sqlite3.connect(database, isolation_level='EXCLUSIVE')
-      conn.execute('BEGIN EXCLUSIVE')
+        conn = sqlite3.connect(database, isolation_level="EXCLUSIVE")
+        conn.execute("BEGIN EXCLUSIVE")
 
-      for feed in rss_feeds:
-        outlet = feed['outlet'] if 'outlet' in feed else ''
-        url = feed['url']
-        delicate = True if 'delicateURLs' in feed and feed['delicateURLs'] \
-                else False
-        redirects = True if 'redirectLinks' in feed and feed['redirectLinks'] \
-                else False
+        for feed in rss_feeds:
+            outlet = feed["outlet"] if "outlet" in feed else ""
+            url = feed["url"]
+            delicate = (
+                True if "delicateURLs" in feed and feed["delicateURLs"] else False
+            )
+            redirects = (
+                True if "redirectLinks" in feed and feed["redirectLinks"] else False
+            )
 
-        try:
-            articles = parse_feed(outlet, url, delicate, redirects)
-            deduped = []
+            try:
+                articles = parse_feed(outlet, url, delicate, redirects)
+                deduped = []
 
-            for article in articles:
-                article_exists = conn.execute('select * from articles where url = ?',
-                                              (article.url,)).fetchall()
-                if not article_exists:
-                    deduped.append(article)
+                for article in articles:
+                    article_exists = conn.execute(
+                        "select * from articles where url = ?", (article.url,)
+                    ).fetchall()
+                    if not article_exists:
+                        deduped.append(article)
 
-            for counter, article in enumerate(deduped, 1):
-                print('Checking {} article {}/{}'.format(
-                    article.outlet, counter, len(deduped)))
+                for counter, article in enumerate(deduped, 1):
+                    print(
+                        "Checking {} article {}/{}".format(
+                            article.outlet, counter, len(deduped)
+                        )
+                    )
 
-                try:
-                    article.check_for_matches()
-                except:
-                    print('Having trouble with that article. Skipping for now.')
-                    pass
+                    try:
+                        article.check_for_matches()
+                    except:
+                        print("Having trouble with that article. Skipping for now.")
 
-                if article.matching_grafs:
-                    print("Got one!")
-                    article.tweet()
+                    if article.matching_grafs:
+                        print("Got one!")
+                        article.tweet()
 
-                conn.execute("""insert into articles(
+                    conn.execute(
+                        """insert into articles(
                             title, outlet, url, tweeted,recorded_at)
                             values (?, ?, ?, ?, ?)""",
-                             (article.title, article.outlet, article.url,
-                              article.tweeted, datetime.utcnow()))
+                        (
+                            article.title,
+                            article.outlet,
+                            article.url,
+                            article.tweeted,
+                            datetime.utcnow(),
+                        ),
+                    )
 
-                conn.commit()
+                    conn.commit()
 
-                time.sleep(1)
-        except Exception as e:
-            print('Having trouble with feed {} for outlet {}, skipping'.format(outlet, url), file=sys.stderr)
-            print(e, file=sys.stderr)
-            pass
-
+                    time.sleep(1)
+            except Exception as e:
+                print(
+                    "Having trouble with feed {} for outlet {}, skipping".format(
+                        outlet, url
+                    ),
+                    file=sys.stderr,
+                )
+                print(e, file=sys.stderr)
 
         conn.close()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
