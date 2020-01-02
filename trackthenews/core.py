@@ -52,7 +52,7 @@ class Article:
         # These outlets use redirect links in their RSS feeds.
         # Follow those links, then store only the final destination.
         if self.redirects:
-            res = requests.head(self.url, allow_redirects=True, timeout=30)
+            res = requests.head(self.url, allow_redirects=True, timeout=30, headers={"User-Agent": ua})
             self.url = res.headers["location"] if "location" in res.headers else res.url
 
         # Some outlets' URLs don't play well with modifications, so those we
